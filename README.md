@@ -1,4 +1,4 @@
-# Coursera_Project_Practical_Machine_Learning
+# Assignment for Course Project: Practical Machine Learning
 
 Course Assignment on Practical Machine Learning. 
 
