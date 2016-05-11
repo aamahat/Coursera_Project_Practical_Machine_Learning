@@ -1,4 +1,4 @@
-# Assignment for Course Project: Practical Machine Learning
+# Project Assignment: Practical Machine Learning
 
 Course Assignment on Practical Machine Learning. 
 
