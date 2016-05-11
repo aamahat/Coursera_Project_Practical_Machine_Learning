@@ -2,4 +2,4 @@
 
 Course Assignment on Practical Machine Learning. 
 
-Please refer the file https://github.com/aamahat/Coursera_Project_Practical_Machine_Learning/blob/master/PracticalMachineLearning.html for detail report.
+Please refer the file [HTML Output](https://aamahat.github.io/Practical_Machine_Learning/PracticalMachineLearning.html) for detail report.
