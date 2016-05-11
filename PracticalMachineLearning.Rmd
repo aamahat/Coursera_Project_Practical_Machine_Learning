@@ -1,0 +1,151 @@
+---
+title: "Predicting manner of doing exercise"
+output: html_document
+author: "A.SI.M."
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+Executive Summary
+===
+
+With devices like Jawbone Up, Nike FuelBand and Fitbit, it is now possible to collect a large amount of data about personal activity relatively inexpensively. People regularly do measure how much of a particular activity they do but they rarely measure how well they do it. In this project, I will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+In this assignment, I will predict the manner in which exercise was done. This is the "classe" variable in the training set. Prediction is done via various variables and report below describes model building, cross validation and expected out of sample error. 20 different test cases are used in the prediction model.
+
+
+Loading libraries
+===
+```{r loadinglibrary}
+library(caret)
+library(gbm)
+library(randomForest)
+library(e1071)
+```
+
+Loading Dataset
+===
+Dataset to develop model and validate model is downloaded from provided link.
+
+The training data for this project are available here:
+[training dataset](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+
+The test data are available here:
+[testing dataset](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+Downloading the data: 
+```{r downloaddata}
+train_file <- "pml-training.csv"
+test_file <- "pml-testing.csv" 
+train_file_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+if (!file.exists(train_file)){
+    download.file(train_file_url, train_file)    
+}
+
+test_file_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+if (!file.exists(test_file)){
+    download.file(test_file_url, test_file)  
+}
+```
+
+Loading the data into R:
+```{r loaddata, echo=TRUE, cache=TRUE}
+train_data <- read.csv(train_file, na.strings = c("#DIV/0!","NA"))
+test_data <- read.csv(test_file, na.strings = c("#DIV/0!","NA"))
+```
+
+# Cleaning Data
+
+I will be removing first five columns namely X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp as they don't have any significance in building the prediction model. 
+
+```{r cleaningdata}
+train_data <- subset(train_data, select = -(1:5))
+
+# removing variables with near zero variance
+var_nearZeroVar <- nearZeroVar(train_data)
+train_data <- train_data[, -var_nearZeroVar]
+
+# removing missing data as denoted by NA
+missing_data <- sapply(train_data, function(x) mean(is.na(x))) > 0.9
+train_data <- train_data[, missing_data == F]
+```
+
+Model Building
+===
+I have decided to use `RandomForest` model to see if it returns acceptable performance. I will be using `train` function in `caret` package to train the model and have used ten fold cross validation.
+```{r randomforest, cache=TRUE}
+# data partitioning
+data_partIndex <- createDataPartition(train_data$classe, p = 0.7, list = FALSE)
+train_set <- train_data[data_partIndex,]
+test_set <- train_data[-data_partIndex,]
+
+model_ctrl <- trainControl(method = "cv", number = 10, verboseIter = FALSE)
+# using RandomForest model
+rf_model <- train(classe ~ ., method = "rf", data = train_set, trControl = model_ctrl)
+```
+
+Not, I'm using `Boosting` algorithm with the ten fold cross validation for the prediction.
+```{r boosting, cache = TRUE}
+boost_model <- train(classe ~ ., method = "gbm", data = train_set, verbose = FALSE, trControl = model_ctrl)
+```
+
+Random Forest vs Boosting Model Evaluation
+===
+Predicting the classe in test dataset using the fitted model from training dataset. Confusion matrix will compare predicted vs actual values.
+```{r Fitevaluation, cache=TRUE}
+plot(rf_model, ylim = c(0.9, 1), main = "Random Forest model")
+plot(boost_model, ylim = c(0.9, 1), main = "Boosting model")
+
+# predicting classe in test set using RandomForest fitted from training set
+rf_model_predicted <- predict(rf_model, newdata = test_set)
+
+# confusion matrix for out-of-sample error estimation from prediction for RF fitted
+confusionMatrix(test_set$classe, rf_model_predicted)
+
+# predicting classe in test set using Boosting fitted from training set
+boost_model_predicted <- predict(boost_model, newdata = test_set)
+
+# confusion matrix for out-of-sample error estimation from prediction for Boosting fitted
+confusionMatrix(test_set$classe, boost_model_predicted)
+```
+
+It is clear from the comparsion that Random Forest model is the best model to fit the dataset. 
+
+Out of Sample (OOS) error
+===
+```{r oos, cache=TRUE}
+# calculating out of sample error for Random Forest model
+miss_class = function(values, predicted) {
+        sum(predicted != values) / length(values)
+}
+OOS_error_rate_rf = miss_class(test_set$classe, rf_model_predicted)
+OOS_error_rate_rf
+```
+
+Estimated out of sample error rate for the random forests model is `r OOS_error_rate_rf` as reported by the final model.
+
+Final Prediction
+===
+Finally, predicting the classe of testing dataset using the model selected and writing the result to files.
+```{r prediction, cache=TRUE}
+# prediction on test set
+test_prediction <- predict(rf_model, newdata = test_data)
+test_prediction <- as.character(test_prediction)
+
+# output directory to hold prediction results
+dir_output <- "predicted_output"
+if (!file.exists(dir_output)){
+  dir.create(dir_output)
+}
+
+# creating function to write prediction result to files
+fn_write_files <- function(x) {
+    n <- length(x)
+    for (i in 1:n) {
+        filename <- paste0(dir_output, "/problem_id_", i, ".txt")
+        write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
+    }
+}
+
+# creating prediction files
+fn_write_files(test_prediction)
+```
